@@ -91,7 +91,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options","nosniff")
         self.end_headers()
         self.wfile.write(data)
+    def trusted_request(self):
+        # Reject DNS-rebinding hostnames and cross-origin browser requests.
+        host = self.headers.get("Host", "")
+        expected = f"127.0.0.1:{self.server.server_port}"
+        if host != expected:
+            return False
+        origin = self.headers.get("Origin")
+        return origin is None or origin == f"http://{expected}"
+
     def do_GET(self):
+        if not self.trusted_request():
+            return self.respond(403,'{"error":"untrusted origin or host"}')
         if self.path=="/":
             return self.respond(200,HTML,"text/html")
         if self.path=="/api/config":
@@ -104,6 +115,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(200,json.dumps(rows))
         self.respond(404,'{"error":"not found"}')
     def do_POST(self):
+        if not self.trusted_request():
+            return self.respond(403,'{"error":"untrusted origin or host"}')
+        if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+            return self.respond(415,'{"error":"application/json required"}')
         if self.path!="/api/workflows":
             return self.respond(404,'{"error":"not found"}')
         if not EXECUTION:
