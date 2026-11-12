@@ -36,6 +36,22 @@ class AgentBridgeTests(unittest.TestCase):
         request = Request(self.base + "/api/workflows", data=json.dumps(data).encode(), headers={"Content-Type": "application/json"}, method="POST")
         return urlopen(request)
 
+    def test_untrusted_host_rejected(self):
+        request = Request(self.base + "/api/config", headers={"Host": "evil.example"})
+        with self.assertRaises(HTTPError) as error:
+            urlopen(request)
+        self.assertEqual(error.exception.code, 403)
+
+    def test_cross_origin_post_rejected(self):
+        server.EXECUTION = True
+        request = Request(self.base + "/api/workflows",
+            data=json.dumps({"prompt":"test","agents":["claude"]}).encode(),
+            headers={"Content-Type":"application/json","Origin":"https://evil.example"},
+            method="POST")
+        with self.assertRaises(HTTPError) as error:
+            urlopen(request)
+        self.assertEqual(error.exception.code, 403)
+
     def test_execution_disabled_by_default(self):
         with self.assertRaises(HTTPError) as error:
             self.post({"prompt": "test", "agents": ["claude"]})
