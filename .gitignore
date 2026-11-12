@@ -1,0 +1,7 @@
+.agentbridge/
+__pycache__/
+*.pyc
+.env
+.env.*
+.venv/
+*.sqlite3
